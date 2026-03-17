@@ -1,75 +1,97 @@
 import os
 import json
-import pickle
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-from google.oauth2 import service_account
+from googleapiclient.errors import HttpError
+from pydrive.auth import GoogleAuth
+from pydrive.drive import GoogleDrive
 
-# ===== CONFIG =====
-DRIVE_FOLDER_ID = os.environ.get("DRIVE_FOLDER_ID")
+# === CONFIG ===
+SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+DRIVE_FOLDER_ID = os.environ.get("DRIVE_FOLDER_ID")  # from GitHub Secrets
 
-SCOPES_DRIVE = ['https://www.googleapis.com/auth/drive']
-SCOPES_YT = ["https://www.googleapis.com/auth/youtube.upload"]
-
-# ===== AUTH DRIVE (SERVICE ACCOUNT) =====
-def auth_drive():
-    credentials = service_account.Credentials.from_service_account_file(
-        "service_account.json",
-        scopes=SCOPES_DRIVE
-    )
-    return build("drive", "v3", credentials=credentials)
-
-# ===== AUTH YOUTUBE =====
+# Authenticate YouTube using JSON token
 def auth_youtube():
-    with open("token.json", "rb") as f:
-        creds = pickle.load(f)
+    creds = Credentials.from_authorized_user_file("token.json", SCOPES)
     return build("youtube", "v3", credentials=creds)
 
-# ===== GET VIDEOS =====
-def get_videos(drive):
-    query = f"'{DRIVE_FOLDER_ID}' in parents and mimeType='video/mp4'"
-    results = drive.files().list(q=query).execute()
-    return results.get("files", [])
+# Authenticate Google Drive using client_secret.json
+def auth_drive():
+    gauth = GoogleAuth()
+    gauth.LoadClientConfigFile("client_secret.json")  # use service account JSON
+    gauth.LocalWebserverAuth()
+    return GoogleDrive(gauth)
 
-# ===== DOWNLOAD VIDEO =====
-def download_video(drive, file_id, name):
-    request = drive.files().get_media(fileId=file_id)
-    with open(name, "wb") as f:
-        f.write(request.execute())
+# Read global notes from Drive folder
+def read_global_notes(drive):
+    file_list = drive.ListFile({'q': f"'{DRIVE_FOLDER_ID}' in parents and trashed=false"}).GetList()
+    notes_file = [f for f in file_list if f['title'] == "global_notes.txt"]
+    if not notes_file:
+        return "Automated Upload", "Default Description", ["shorts"]
 
-# ===== UPLOAD YOUTUBE =====
-def upload(youtube, path):
-    body = {
+    notes_file[0].GetContentFile("global_notes.txt")
+    title, description, tags = "Automated Upload", "", []
+
+    with open("global_notes.txt", "r", encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("TITLE:"):
+                title = line.replace("TITLE:", "").strip()
+            elif line.startswith("DESCRIPTION:"):
+                description = line.replace("DESCRIPTION:", "").strip()
+            elif line.startswith("TAGS:"):
+                tags = [t.strip() for t in line.replace("TAGS:", "").strip().split(",")]
+
+    return title, description, tags
+
+# List MP4 videos in Drive folder
+def get_drive_videos(drive):
+    file_list = drive.ListFile({'q': f"'{DRIVE_FOLDER_ID}' in parents and trashed=false"}).GetList()
+    return [f for f in file_list if f['title'].endswith(".mp4")]
+
+# Upload video to YouTube
+def upload_video(youtube, file_path, title, description, tags):
+    request_body = {
         "snippet": {
-            "title": "Auto Upload",
-            "description": "Automation",
+            "title": title,
+            "description": description,
+            "tags": tags,
             "categoryId": "22"
         },
-        "status": {"privacyStatus": "public"}
+        "status": {"privacyStatus": "public"},
     }
-    media = MediaFileUpload(path)
-    youtube.videos().insert(part="snippet,status", body=body, media_body=media).execute()
+    media = MediaFileUpload(file_path)
+    request = youtube.videos().insert(
+        part="snippet,status",
+        body=request_body,
+        media_body=media
+    )
+    request.execute()
 
-# ===== MAIN =====
+# Main function
 def main():
+    youtube = auth_youtube()
     drive = auth_drive()
-    yt = auth_youtube()
+    title, description, tags = read_global_notes(drive)
+    videos = get_drive_videos(drive)
 
-    videos = get_videos(drive)
     if not videos:
-        print("No videos")
+        print("No videos in Drive")
         return
 
-    v = videos[0]
-    name = v["name"]
+    # Upload first video only
+    file = videos[0]
+    file.GetContentFile(file['title'])
 
-    download_video(drive, v["id"], name)
-    upload(yt, name)
-
-    drive.files().delete(fileId=v["id"]).execute()
-    os.remove(name)
-
-    print("Uploaded:", name)
+    try:
+        upload_video(youtube, file['title'], title, description, tags)
+        print("✅ Uploaded:", file['title'])
+        file.Delete()  # remove from Drive
+    except HttpError as e:
+        print("❌ Upload error:", e)
+    finally:
+        if os.path.exists(file['title']):
+            os.remove(file['title'])
 
 if __name__ == "__main__":
     main()
