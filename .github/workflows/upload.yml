@@ -1,38 +1,35 @@
-name: YouTube Auto Upload
+name: YouTube Upload
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: '0 * * * *'   # every hour
+    - cron: '0 * * * *'  # every hour
+  workflow_dispatch:      # allows manual run
 
 jobs:
   upload:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
-          pip install google-api-python-client google-auth google-auth-oauthlib
+          python -m pip install --upgrade pip
+          pip install google-api-python-client google-auth google-auth-oauthlib pydrive
 
-      - name: Create service account file
-        run: echo "$SERVICE_ACCOUNT_JSON" > service_account.json
-        env:
-          SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
+      - name: Save Secrets as Files
+        run: |
+          echo '${{ secrets.YOUTUBE_TOKEN }}' > token.json
+          echo '${{ secrets.CLIENT_SECRET_JSON }}' > client_secret.json
+        shell: bash
 
-      - name: Create YouTube token
-        run: echo "$YOUTUBE_TOKEN" > token.json
-        env:
-          YOUTUBE_TOKEN: ${{ secrets.YOUTUBE_TOKEN }}
-
-      - name: Run uploader
+      - name: Run Upload Script
         run: python upload_drive.py
         env:
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
