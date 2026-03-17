@@ -3,7 +3,7 @@ name: YouTube Upload
 on:
   schedule:
     - cron: '0 * * * *'  # every hour
-  workflow_dispatch:      # allows manual run
+  workflow_dispatch:      # manual run
 
 jobs:
   upload:
@@ -25,11 +25,8 @@ jobs:
 
       - name: Save Secrets as Files
         run: |
-          echo "$YOUTUBE_TOKEN_JSON" > token.json
-          echo "$CLIENT_SECRET_JSON" > client_secret.json
-        env:
-          YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
-          CLIENT_SECRET_JSON: ${{ secrets.CLIENT_SECRET_JSON }}
+          printf '%s' "${{ secrets.YOUTUBE_TOKEN_JSON }}" > token.json
+          printf '%s' "${{ secrets.CLIENT_SECRET_JSON }}" > client_secret.json
 
       - name: Run Upload Script
         run: python upload_drive.py
