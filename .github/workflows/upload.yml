@@ -11,7 +11,7 @@ jobs:
       DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Setup Python
@@ -19,22 +19,34 @@ jobs:
         with:
           python-version: 3.11
 
-      # Create token.json from GitHub secret
+      # ✅ SAFELY CREATE token.json
       - name: Create token.json
         run: |
-          echo '${{ secrets.YT_TOKEN_JSON }}' > token.json
+          cat <<EOF > token.json
+          ${{ secrets.YT_TOKEN_JSON }}
+          EOF
 
-      # Create client_secret.json from GitHub secret
+      # ✅ SAFELY CREATE client_secret.json
       - name: Create client_secret.json
         run: |
-          echo '${{ secrets.YT_CLIENT_SECRET_JSON }}' > client_secret.json
+          cat <<EOF > client_secret.json
+          ${{ secrets.YT_CLIENT_SECRET_JSON }}
+          EOF
 
-      # Install required Python packages
-      - name: Install dependencies
+      # ✅ INSTALL DEPENDENCIES
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install --no-cache-dir google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2 PyDrive
+          pip install google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2 PyDrive
 
-      # Run the upload script
-      - name: Run upload script
+      # ✅ DEBUG (IMPORTANT)
+      - name: Debug files
+        run: |
+          echo "---- token.json ----"
+          cat token.json
+          echo "---- client_secret.json ----"
+          cat client_secret.json
+
+      # ✅ RUN SCRIPT
+      - name: Run script
         run: python upload_drive.py
