@@ -19,26 +19,28 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install google-api-python-client
+          pip install google-auth
+          pip install google-auth-oauthlib
+          pip install pydrive
 
-      # ✅ Create credential files from secrets
+      # ✅ FIXED: create JSON files correctly
       - name: Create credential files
         run: |
-          echo '${{ secrets.TOKEN_JSON }}' > token.json
-          echo '${{ secrets.CLIENT_SECRET_JSON }}' > client_secret.json
+          printf '%s' '${{ secrets.TOKEN_JSON }}' > token.json
+          printf '%s' '${{ secrets.CLIENT_SECRET_JSON }}' > client_secret.json
 
-      # 🔍 DEBUG (VERY IMPORTANT)
-      - name: Debug token.json
+      # 🔍 DEBUG (remove after success)
+      - name: Debug token.json size
         run: |
-          echo "----- TOKEN.JSON CONTENT -----"
-          cat token.json
-          echo "------------------------------"
+          echo "TOKEN SIZE:"
+          wc -c token.json
 
-      - name: Debug client_secret.json
+      - name: Debug client_secret.json size
         run: |
-          echo "----- CLIENT_SECRET.JSON CONTENT -----"
-          cat client_secret.json
-          echo "-------------------------------------"
+          echo "CLIENT SECRET SIZE:"
+          wc -c client_secret.json
 
       - name: Run upload script
         run: python upload_drive.py
