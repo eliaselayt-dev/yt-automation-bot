@@ -25,20 +25,33 @@ jobs:
           pip install google-auth-oauthlib
           pip install pydrive
 
-      # ✅ FIXED: create JSON files correctly
-      - name: Create credential files (bulletproof)
+      # ✅ Install jq (fix JSON issues)
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      # ✅ BULLETPROOF JSON creation
+      - name: Create credential files
         run: |
           echo "${{ secrets.TOKEN_JSON }}" | jq . > token.json
           echo "${{ secrets.CLIENT_SECRET_JSON }}" | jq . > client_secret.json
 
-      # 🔍 DEBUG (remove after success)
-      - name: Debug token.json size
+      # 🔍 DEBUG (leave for now)
+      - name: Debug token.json
+        run: |
+          echo "===== TOKEN.JSON ====="
+          cat token.json
+          echo "======================"
+
+      - name: Debug client_secret.json
+        run: |
+          echo "===== CLIENT_SECRET.JSON ====="
+          cat client_secret.json
+          echo "=============================="
+
+      - name: Debug file sizes
         run: |
           echo "TOKEN SIZE:"
           wc -c token.json
-
-      - name: Debug client_secret.json size
-        run: |
           echo "CLIENT SECRET SIZE:"
           wc -c client_secret.json
 
