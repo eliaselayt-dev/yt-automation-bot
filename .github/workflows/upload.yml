@@ -26,10 +26,10 @@ jobs:
           pip install pydrive
 
       # ✅ FIXED: create JSON files correctly
-      - name: Create credential files
+      - name: Create credential files (bulletproof)
         run: |
-          printf '%s' '${{ secrets.TOKEN_JSON }}' > token.json
-          printf '%s' '${{ secrets.CLIENT_SECRET_JSON }}' > client_secret.json
+          echo "${{ secrets.TOKEN_JSON }}" | jq . > token.json
+          echo "${{ secrets.CLIENT_SECRET_JSON }}" | jq . > client_secret.json
 
       # 🔍 DEBUG (remove after success)
       - name: Debug token.json size
