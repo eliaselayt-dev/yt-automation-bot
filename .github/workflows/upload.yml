@@ -1,59 +1,41 @@
-name: YouTube Upload
+name: Upload YouTube Video
 
 on:
-  schedule:
-    - cron: '0 * * * *'
+  push:
+    branches:
+      - main  # or your default branch
   workflow_dispatch:
 
 jobs:
   upload:
     runs-on: ubuntu-latest
-
+    env:
+      DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
     steps:
-      - name: Checkout repo
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: 3.11
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: |
-          pip install google-api-python-client
-          pip install google-auth
-          pip install google-auth-oauthlib
-          pip install pydrive
+          python -m pip install --upgrade pip
+          pip install --upgrade google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client PyDrive
 
-      # ✅ Install jq (fix JSON issues)
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Debug - Show Python version
+        run: python --version
 
-      # ✅ BULLETPROOF JSON creation
-      - name: Create credential files
-        run: |
-          echo "${{ secrets.TOKEN_JSON }}" | jq . > token.json
-          echo "${{ secrets.CLIENT_SECRET_JSON }}" | jq . > client_secret.json
+      - name: Create token.json
+        run: echo '${{ secrets.YT_TOKEN_JSON }}' > token.json
 
-      # 🔍 DEBUG (leave for now)
-      - name: Debug token.json
-        run: |
-          echo "===== TOKEN.JSON ====="
-          cat token.json
-          echo "======================"
+      - name: Create client_secret.json
+        run: echo '${{ secrets.YT_CLIENT_SECRET_JSON }}' > client_secret.json
 
-      - name: Debug client_secret.json
-        run: |
-          echo "===== CLIENT_SECRET.JSON ====="
-          cat client_secret.json
-          echo "=============================="
-
-      - name: Debug file sizes
-        run: |
-          echo "TOKEN SIZE:"
-          wc -c token.json
-          echo "CLIENT SECRET SIZE:"
-          wc -c client_secret.json
+      - name: List Files (Debug)
+        run: ls -la
 
       - name: Run upload script
         run: python upload_drive.py
