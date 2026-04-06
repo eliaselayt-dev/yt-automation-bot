@@ -1,43 +1,40 @@
 name: Upload YouTube Video
 
 on:
-  push:
-    branches:
-      - main  # or your default branch
   workflow_dispatch:
 
 jobs:
   upload:
     runs-on: ubuntu-latest
+
     env:
       DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: 3.11
 
-      - name: Install Dependencies
+      # Create token.json from GitHub secret
+      - name: Create token.json
+        run: |
+          echo '${{ secrets.YT_TOKEN_JSON }}' > token.json
+
+      # Create client_secret.json from GitHub secret
+      - name: Create client_secret.json
+        run: |
+          echo '${{ secrets.YT_CLIENT_SECRET_JSON }}' > client_secret.json
+
+      # Install required Python packages
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install --upgrade google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client PyDrive
+          pip install --no-cache-dir google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2 PyDrive
 
-      - name: Debug - Show Python version
-        run: python --version
-
-      - name: Create token.json
-        run: echo '${{ secrets.YT_TOKEN_JSON }}' > token.json
-
-      - name: Create client_secret.json
-        run: echo '${{ secrets.YT_CLIENT_SECRET_JSON }}' > client_secret.json
-
-      - name: List Files (Debug)
-        run: ls -la
-
+      # Run the upload script
       - name: Run upload script
         run: python upload_drive.py
-        env:
-          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
