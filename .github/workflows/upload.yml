@@ -10,7 +10,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -20,12 +21,26 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      # ✅ Create credential files from secrets
       - name: Create credential files
         run: |
           echo '${{ secrets.TOKEN_JSON }}' > token.json
           echo '${{ secrets.CLIENT_SECRET_JSON }}' > client_secret.json
 
-      - name: Run script
+      # 🔍 DEBUG (VERY IMPORTANT)
+      - name: Debug token.json
+        run: |
+          echo "----- TOKEN.JSON CONTENT -----"
+          cat token.json
+          echo "------------------------------"
+
+      - name: Debug client_secret.json
+        run: |
+          echo "----- CLIENT_SECRET.JSON CONTENT -----"
+          cat client_secret.json
+          echo "-------------------------------------"
+
+      - name: Run upload script
         run: python upload_drive.py
         env:
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
