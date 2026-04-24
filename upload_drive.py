@@ -57,20 +57,36 @@ def read_global_notes(drive_service):
 
 
 def get_drive_videos(drive_service):
-    results = drive_service.files().list(
-        q=f"'{DRIVE_FOLDER_ID}' in parents and trashed=false and name contains '.mp4'",
-        fields="files(id, name)"
-    ).execute()
-    files = results.get("files", [])
+    """Get ALL videos from Drive with pagination, then sort naturally by filename."""
+    all_files = []
+    page_token = None
 
-    # Sort by filename naturally: part1, part2, ..., part10, part11
-    files.sort(key=lambda f: natural_sort_key(f["name"]))
+    while True:
+        params = {
+            "q": f"'{DRIVE_FOLDER_ID}' in parents and trashed=false and name contains '.mp4'",
+            "fields": "nextPageToken, files(id, name)",
+            "pageSize": 1000,
+        }
+        if page_token:
+            params["pageToken"] = page_token
 
-    print("📂 Videos in upload order:")
-    for i, f in enumerate(files):
+        results = drive_service.files().list(**params).execute()
+        all_files.extend(results.get("files", []))
+        page_token = results.get("nextPageToken")
+
+        if not page_token:
+            break
+
+    # Natural sort: video_1, video_2 ... video_9, video_10, video_11 (not video_1, video_10, video_2)
+    all_files.sort(key=lambda f: natural_sort_key(f["name"]))
+
+    print(f"📂 Found {len(all_files)} videos. First 5 in order:")
+    for i, f in enumerate(all_files[:5]):
         print(f"  {i+1}. {f['name']}")
+    if len(all_files) > 5:
+        print(f"  ... and {len(all_files) - 5} more")
 
-    return files
+    return all_files
 
 
 def download_file(drive_service, file_id, filename):
@@ -128,7 +144,7 @@ def main():
         print("No videos found in Drive folder.")
         return
 
-    # Upload only the FIRST video in sorted order
+    # Always upload the FIRST file in sorted order (lowest number)
     file = videos[0]
     file_id = file["id"]
     filename = file["name"]
