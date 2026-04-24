@@ -1,27 +1,34 @@
 import os
 import json
+import re
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from googleapiclient.errors import HttpError
 
-# Both YouTube and Drive use the same OAuth token
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
-    "https://www.googleapis.com/auth/drive.readonly",
+    "https://www.googleapis.com/auth/drive",
 ]
 DRIVE_FOLDER_ID = os.environ.get("DRIVE_FOLDER_ID")
 
 
 def auth():
-    """Single OAuth auth for both YouTube and Drive."""
     creds = Credentials.from_authorized_user_file("token.json", SCOPES)
     if creds.expired and creds.refresh_token:
         creds.refresh(Request())
         with open("token.json", "w") as f:
             f.write(creds.to_json())
     return creds
+
+
+def natural_sort_key(filename):
+    """Sort filenames naturally so video_2.mp4 comes before video_10.mp4"""
+    return [
+        int(part) if part.isdigit() else part.lower()
+        for part in re.split(r'(\d+)', filename)
+    ]
 
 
 def read_global_notes(drive_service):
@@ -54,7 +61,16 @@ def get_drive_videos(drive_service):
         q=f"'{DRIVE_FOLDER_ID}' in parents and trashed=false and name contains '.mp4'",
         fields="files(id, name)"
     ).execute()
-    return results.get("files", [])
+    files = results.get("files", [])
+
+    # Sort by filename naturally: part1, part2, ..., part10, part11
+    files.sort(key=lambda f: natural_sort_key(f["name"]))
+
+    print("📂 Videos in upload order:")
+    for i, f in enumerate(files):
+        print(f"  {i+1}. {f['name']}")
+
+    return files
 
 
 def download_file(drive_service, file_id, filename):
@@ -112,20 +128,21 @@ def main():
         print("No videos found in Drive folder.")
         return
 
+    # Upload only the FIRST video in sorted order
     file = videos[0]
     file_id = file["id"]
     filename = file["name"]
 
-    print(f"Downloading: {filename}")
+    print(f"\n⬇️  Downloading: {filename}")
     download_file(drive_service, file_id, filename)
 
     try:
         upload_video(youtube, filename, title, description, tags)
-        print(f"Uploaded: {filename}")
+        print(f"✅ Uploaded to YouTube: {filename}")
         delete_file(drive_service, file_id)
-        print("Deleted from Drive.")
+        print(f"🗑️  Deleted from Drive: {filename}")
     except HttpError as e:
-        print(f"Upload error: {e}")
+        print(f"❌ Upload error: {e}")
     finally:
         if os.path.exists(filename):
             os.remove(filename)
