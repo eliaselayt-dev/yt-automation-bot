@@ -2,8 +2,8 @@ name: Upload Video to YouTube
 
 on:
   schedule:
-    - cron: '0 10 * * *'   # Runs daily at 10:00 UTC — change as needed
-  workflow_dispatch:        # Also allows manual trigger from GitHub UI
+    - cron: '0 10 * * *'
+  workflow_dispatch:
 
 jobs:
   upload:
@@ -21,13 +21,34 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Write credential files from secrets
+      - name: Write credentials using Python (avoids shell escaping issues)
         env:
           TOKEN_JSON: ${{ secrets.TOKEN_JSON }}
           CLIENT_SECRET_JSON: ${{ secrets.CLIENT_SECRET_JSON }}
         run: |
-          echo "$TOKEN_JSON" > token.json
-          echo "$CLIENT_SECRET_JSON" > client_secret.json
+          python3 -c "
+          import os, json
+
+          token = os.environ['TOKEN_JSON'].strip()
+          client = os.environ['CLIENT_SECRET_JSON'].strip()
+
+          # Validate JSON before writing
+          try:
+              json.loads(token)
+          except Exception as e:
+              print('TOKEN_JSON is not valid JSON:', e)
+              exit(1)
+
+          with open('token.json', 'w') as f:
+              f.write(token)
+
+          with open('client_secret.json', 'w') as f:
+              f.write(client)
+
+          print('token.json:', len(token), 'chars')
+          print('client_secret.json:', len(client), 'chars')
+          print('Credentials written successfully')
+          "
 
       - name: Run upload script
         env:
