@@ -21,34 +21,36 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Write credentials using Python (avoids shell escaping issues)
+      - name: Write credentials
         env:
           TOKEN_JSON: ${{ secrets.TOKEN_JSON }}
           CLIENT_SECRET_JSON: ${{ secrets.CLIENT_SECRET_JSON }}
         run: |
-          python3 -c "
+          python3 << 'PYEOF'
           import os, json
 
-          token = os.environ['TOKEN_JSON'].strip()
-          client = os.environ['CLIENT_SECRET_JSON'].strip()
+          token = os.environ.get('TOKEN_JSON', '').strip()
+          client = os.environ.get('CLIENT_SECRET_JSON', '').strip()
 
-          # Validate JSON before writing
+          if not token:
+              print("ERROR: TOKEN_JSON secret is empty!")
+              exit(1)
+
           try:
               json.loads(token)
           except Exception as e:
-              print('TOKEN_JSON is not valid JSON:', e)
+              print(f"ERROR: TOKEN_JSON is not valid JSON: {e}")
+              print(f"First 100 chars: {token[:100]}")
               exit(1)
 
           with open('token.json', 'w') as f:
               f.write(token)
-
           with open('client_secret.json', 'w') as f:
               f.write(client)
 
-          print('token.json:', len(token), 'chars')
-          print('client_secret.json:', len(client), 'chars')
-          print('Credentials written successfully')
-          "
+          print(f"token.json written: {len(token)} chars")
+          print(f"client_secret.json written: {len(client)} chars")
+          PYEOF
 
       - name: Run upload script
         env:
