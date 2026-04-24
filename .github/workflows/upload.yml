@@ -1,40 +1,35 @@
-name: Upload YouTube Video
+name: Upload Video to YouTube
 
 on:
-  workflow_dispatch:
+  schedule:
+    - cron: '0 10 * * *'   # Runs daily at 10:00 UTC — change as needed
+  workflow_dispatch:        # Also allows manual trigger from GitHub UI
 
 jobs:
   upload:
     runs-on: ubuntu-latest
 
-    env:
-      DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.11
+          python-version: '3.11'
 
-      - name: Create token.json
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write credential files from secrets
+        env:
+          TOKEN_JSON: ${{ secrets.TOKEN_JSON }}
+          CLIENT_SECRET_JSON: ${{ secrets.CLIENT_SECRET_JSON }}
         run: |
-          echo '${{ secrets.YT_TOKEN_JSON }}' > token.json
+          echo "$TOKEN_JSON" > token.json
+          echo "$CLIENT_SECRET_JSON" > client_secret.json
 
-      - name: Create client_secret.json
-        run: |
-          echo '${{ secrets.YT_CLIENT_SECRET_JSON }}' > client_secret.json
-
-      - name: Install deps
-        run: |
-          pip install google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2 PyDrive
-
-      - name: Debug (IMPORTANT)
-        run: |
-          echo "TOKEN SIZE:"
-          wc -c token.json
-          echo "CLIENT SIZE:"
-          wc -c client_secret.json
-
-      - name: Run script
+      - name: Run upload script
+        env:
+          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
         run: python upload_drive.py
