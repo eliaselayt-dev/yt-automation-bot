@@ -2,8 +2,8 @@ name: Upload Video to YouTube
 
 on:
   schedule:
-    - cron: '0 10 * * *'
-  workflow_dispatch:
+    - cron: '*/30 * * * *'   # Every 30 minutes automatically
+  workflow_dispatch:           # Also keep manual trigger
 
 jobs:
   upload:
